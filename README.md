@@ -64,6 +64,7 @@ class GCN(torch.nn.Module):
 🔒 Data Source
 
 ADNI: Alzheimer's Disease Neuroimaging Initiative
+
 👉 [Dataset](https://ida.loni.usc.edu)
 
 📊 Example Prediction
