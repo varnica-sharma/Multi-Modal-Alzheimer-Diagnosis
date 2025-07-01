@@ -6,7 +6,7 @@ A Streamlit web app that predicts whether a patient is **Cognitively Normal (CN)
 
 ## 🔗 Live App
 
-👉 [Click here to use the app](https://varnica-sharma-multi-omics-alzheimer-diagnosis.streamlit.app)
+👉 [Click here to use the app](https://multi-omics-alzheimer-diagnosis.streamlit.app)
 
 ---
 
