@@ -166,6 +166,6 @@ You’ll see:
 
 ## 📚 Credits
 
-- ADNI: Alzheimer’s Disease Neuroimaging Initiative 👉 [Dataset](https://ida.loni.usc.edu)
+- ADNI: Alzheimer’s Disease Neuroimaging Initiative (data source)
 - Libraries: PyTorch, PyTorch Geometric, scikit-learn, NumPy, Pandas, Streamlit
 
