@@ -1,10 +1,8 @@
-# requirements.txt
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.3.1
 torchvision==0.18.1
 torchaudio==2.3.1
 
-# PyG and its extensions (match the torch version above)
 --extra-index-url https://data.pyg.org/whl/torch-2.3.1+cpu.html
 torch-geometric==2.5.3
 pyg_lib==0.4.0
