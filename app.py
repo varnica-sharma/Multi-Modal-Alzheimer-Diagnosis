@@ -33,6 +33,11 @@ def _load_artifacts(artifact_dir: Path):
     # Keep everything on CPU for inference
     model = model.cpu()
     graph_data = graph_data.cpu()
+    feature_defaults = (
+        patient_table[feature_columns]
+        .median(numeric_only=True)
+        .to_dict()
+    )
     return {
         "model": model,
         "graph_data": graph_data,
@@ -43,6 +48,7 @@ def _load_artifacts(artifact_dir: Path):
         "distance_scale": distance_scale,
         "patient_table": patient_table,
         "feature_columns": feature_columns,
+        "feature_defaults": feature_defaults,
     }
 
 
@@ -168,33 +174,88 @@ _render_sidebar(reference_stats)
 with st.form("prediction_form"):
     st.subheader("Patient profile")
 
-    col1, col2, col3 = st.columns(3)
+    defaults = artifact_state["feature_defaults"]
+
+    col1, col2 = st.columns(2)
     with col1:
-        age = st.number_input("Age (years)", min_value=18, max_value=100, value=65)
+        age = st.number_input(
+            "Age (years)",
+            min_value=18,
+            max_value=100,
+            value=int(defaults.get("Age", 65)),
+        )
         gender_label = st.selectbox("Biological sex", ["Female", "Male"])
         gender_numeric = 0.0 if gender_label == "Female" else 1.0
-        education = st.number_input("Education (years)", min_value=0, max_value=30, value=16)
-        apoe = st.select_slider("APOE ε4 alleles", options=[0, 1, 2], value=0, help="Count of APOE ε4 alleles from genetic testing")
+        education = st.number_input(
+            "Education (years)",
+            min_value=0,
+            max_value=30,
+            value=int(defaults.get("EducationYears", 16)),
+        )
+        apoe = st.select_slider(
+            "APOE ε4 alleles",
+            options=[0, 1, 2],
+            value=int(defaults.get("APOE4Count", 0)),
+            help="Count of APOE ε4 alleles from genetic testing",
+        )
     with col2:
-        mmse = st.slider("MMSE", min_value=0, max_value=30, value=26)
-        cdrsb = st.slider("CDR-SB", min_value=0.0, max_value=18.0, value=2.5, step=0.1)
-        adas13 = st.slider("ADAS-13", min_value=0.0, max_value=85.0, value=20.0, step=0.5)
-        faq = st.slider("FAQ", min_value=0.0, max_value=30.0, value=5.0, step=0.5)
-        moca = st.slider("MoCA", min_value=0.0, max_value=30.0, value=20.0, step=0.5)
-        ravlt = st.slider("RAVLT immediate", min_value=0.0, max_value=80.0, value=35.0, step=1.0)
-    with col3:
-        st.markdown("**CSF biomarkers (pg/mL)**")
-        abeta = st.number_input("Aβ42", min_value=0.0, max_value=2000.0, value=650.0, step=10.0)
-        tau = st.number_input("Total tau", min_value=0.0, max_value=1000.0, value=300.0, step=5.0)
-        ptau = st.number_input("p-tau", min_value=0.0, max_value=200.0, value=30.0, step=1.0)
-        st.markdown("**MRI volumes (mm³)**")
-        hippocampus = st.number_input("Hippocampus", min_value=2000.0, max_value=9000.0, value=3800.0, step=50.0)
-        entorhinal = st.number_input("Entorhinal", min_value=2000.0, max_value=8000.0, value=3500.0, step=50.0)
-        ventricles = st.number_input("Ventricles", min_value=5000.0, max_value=120000.0, value=45000.0, step=500.0)
-        fusiform = st.number_input("Fusiform", min_value=2000.0, max_value=40000.0, value=22000.0, step=100.0)
-        midtemp = st.number_input("Mid temporal", min_value=5000.0, max_value=60000.0, value=21000.0, step=100.0)
-        whole_brain = st.number_input("Whole brain", min_value=800000.0, max_value=1500000.0, value=1000000.0, step=1000.0)
-        icv = st.number_input("Intracranial volume (ICV)", min_value=500000.0, max_value=2500000.0, value=1500000.0, step=1000.0, help="Total intracranial volume from MRI segmentation")
+        mmse = st.slider(
+            "MMSE",
+            min_value=0,
+            max_value=30,
+            value=int(defaults.get("MMSE", 26)),
+        )
+        cdrsb = st.slider(
+            "CDR-SB",
+            min_value=0.0,
+            max_value=18.0,
+            value=float(defaults.get("CDRSB", 2.5)),
+            step=0.1,
+        )
+        adas13 = st.slider(
+            "ADAS-13",
+            min_value=0.0,
+            max_value=85.0,
+            value=float(defaults.get("ADAS13", 20.0)),
+            step=0.5,
+        )
+        faq = st.slider(
+            "FAQ",
+            min_value=0.0,
+            max_value=30.0,
+            value=float(defaults.get("FAQ", 5.0)),
+            step=0.5,
+        )
+
+    st.markdown("### Optional details")
+    st.caption("Leave blank to let the model impute typical values.")
+
+    def optional_float(label: str, placeholder: str) -> float:
+        raw = st.text_input(label, value="", placeholder=placeholder)
+        try:
+            return float(raw)
+        except ValueError:
+            return np.nan
+
+    with st.expander("Cognitive extras", expanded=False):
+        moca = optional_float("MoCA", f"e.g., {defaults.get('MOCA', 20):.0f}")
+        ravlt = optional_float(
+            "RAVLT immediate", f"e.g., {defaults.get('RAVLT_immediate', 35):.0f}"
+        )
+
+    with st.expander("CSF biomarkers (pg/mL)", expanded=False):
+        abeta = optional_float("Aβ42", "e.g., 650")
+        tau = optional_float("Total tau", "e.g., 300")
+        ptau = optional_float("p-tau", "e.g., 30")
+
+    with st.expander("MRI volumes (mm³)", expanded=False):
+        hippocampus = optional_float("Hippocampus", "e.g., 3800")
+        entorhinal = optional_float("Entorhinal", "e.g., 3500")
+        ventricles = optional_float("Ventricles", "e.g., 45000")
+        fusiform = optional_float("Fusiform", "e.g., 22000")
+        midtemp = optional_float("Mid temporal", "e.g., 21000")
+        whole_brain = optional_float("Whole brain", "e.g., 1000000")
+        icv = optional_float("Intracranial volume (ICV)", "e.g., 1500000")
 
     submitted = st.form_submit_button("Predict diagnosis", use_container_width=True)
 
@@ -215,7 +276,7 @@ if submitted:
             "CSF_ABETA42": abeta,
             "CSF_TAU": tau,
             "CSF_PTAU": ptau,
-            "Tau_ABeta_Ratio": tau / abeta if abeta and abeta > 0 else np.nan,
+            "Tau_ABeta_Ratio": tau / abeta if (not np.isnan(tau)) and (not np.isnan(abeta)) and abeta > 0 else np.nan,
             "Hippocampus": hippocampus,
             "Entorhinal": entorhinal,
             "Ventricles": ventricles,
@@ -223,8 +284,8 @@ if submitted:
             "MidTemp": midtemp,
             "WholeBrain": whole_brain,
             "ICV": icv,
-            "Hippocampus_ICV": hippocampus / icv if icv and icv > 0 else np.nan,
-            "Entorhinal_ICV": entorhinal / icv if icv and icv > 0 else np.nan,
+            "Hippocampus_ICV": hippocampus / icv if (not np.isnan(hippocampus)) and (not np.isnan(icv)) and icv > 0 else np.nan,
+            "Entorhinal_ICV": entorhinal / icv if (not np.isnan(entorhinal)) and (not np.isnan(icv)) and icv > 0 else np.nan,
         }
     )
 
